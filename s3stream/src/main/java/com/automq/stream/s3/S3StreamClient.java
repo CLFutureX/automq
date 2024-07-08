@@ -75,6 +75,9 @@ public class S3StreamClient implements StreamClient {
     private final AsyncNetworkBandwidthLimiter networkOutboundBucket;
     private ScheduledFuture<?> scheduledCompactionTaskFuture;
 
+    /**
+     * 是不是可以考虑设计读写锁*
+     */
     private final ReentrantLock lock = new ReentrantLock();
 
     final Map<Long, CompletableFuture<Stream>> openingStreams = new ConcurrentHashMap<>();
@@ -114,6 +117,12 @@ public class S3StreamClient implements StreamClient {
         });
     }
 
+    /**
+     * runInLock 完完全全模仿kafka写的*
+     * @param streamId stream id.
+     * @param openStreamOptions
+     * @return
+     */
     @Override
     public CompletableFuture<Stream> openStream(long streamId, OpenStreamOptions openStreamOptions) {
         return runInLock(() -> {

@@ -256,7 +256,7 @@ public class LogSegment implements Closeable {
 
             ensureOffsetInRange(largestOffset);
 
-            // append the messages
+            //s3 8 append the messages
             long appendedBytes = log.append(records);
             LOGGER.trace("Appended {} to {} at end offset {}", appendedBytes, log.file(), largestOffset);
             // Update the in memory max timestamp and corresponding offset.

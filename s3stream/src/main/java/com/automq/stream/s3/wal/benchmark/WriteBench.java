@@ -174,7 +174,7 @@ public class WriteBench implements AutoCloseable {
                 continue;
             }
             trimOffset.appended(result.recordOffset());
-            result.future().thenAccept(v -> {
+            result.thenAccpet(v -> {
                 long costNanosValue = System.nanoTime() - appendStartTimeNanos;
                 stat.update(costNanosValue);
                 trimOffset.flushed(v.flushedOffset());

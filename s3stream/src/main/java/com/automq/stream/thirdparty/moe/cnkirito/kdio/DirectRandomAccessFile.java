@@ -55,6 +55,10 @@ public class DirectRandomAccessFile implements Closeable {
         return channel.write(src, position);
     }
 
+    private void opWriteabel(){
+
+
+    }
     public int read(ByteBuffer dst, long position) throws IOException {
         return channel.read(dst, position);
     }

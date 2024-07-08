@@ -148,6 +148,7 @@ public class S3Stream implements Stream {
         long startTimeNanos = System.nanoTime();
         readLock.lock();
         try {
+            // 内部是cf完成之后，执行的返回的future，也就是这里的cf。
             CompletableFuture<AppendResult> cf = exec(() -> {
                 if (networkInboundLimiter != null) {
                     networkInboundLimiter.consume(ThrottleStrategy.BYPASS, recordBatch.rawPayload().remaining());
@@ -161,6 +162,10 @@ public class S3Stream implements Stream {
             }, LOGGER, "append");
             pendingAppends.add(cf);
             pendingAppendTimestamps.push(startTimeNanos);
+            pendingAppendTimestamps.push(timerUtil.lastAs(TimeUnit.NANOSECONDS));
+            // 这里，cf完成之后，会执行里面的方法，将pendingAppends.remove ，
+            // 那么返回cf还是返回cf完成之后的cf ，哪个更好呢？除非外部有 a完成之后，就完成cf，那么就返回cf会比较好，因为cf是主流程
+            // 这样会导致在cf完成时，先调用这里的完成，
             cf.whenComplete((nil, ex) -> {
                 StreamOperationStats.getInstance().appendStreamLatency.record(TimerUtil.durationElapsedAs(startTimeNanos, TimeUnit.NANOSECONDS));
                 pendingAppends.remove(cf);
@@ -179,10 +184,12 @@ public class S3Stream implements Stream {
         }
         long offset = nextOffset.getAndAdd(recordBatch.count());
         StreamRecordBatch streamRecordBatch = new StreamRecordBatch(streamId, epoch, offset, recordBatch.count(), Unpooled.wrappedBuffer(recordBatch.rawPayload()));
+        //s3 9 追加到storage中
         CompletableFuture<AppendResult> cf = storage.append(context, streamRecordBatch).thenApply(nil -> {
             updateConfirmOffset(offset + recordBatch.count());
             return new DefaultAppendResult(offset);
         });
+        // cf 完成之后，执行whenComplete内的逻辑， 这里为什么不是返回cf，而是返回cf完成之后的wc
         return cf.whenComplete((rst, ex) -> {
             if (ex == null) {
                 return;

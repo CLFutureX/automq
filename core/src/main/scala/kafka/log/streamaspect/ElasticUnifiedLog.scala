@@ -286,6 +286,9 @@ object ElasticUnifiedLog extends Logging {
                         }
                 }
             }
+            // 创建对应的分布式log
+            val localLog = ElasticLog(client, namespace, dir, config, scheduler, time, topicPartition, partitionLogDirFailureChannel,
+                new ConcurrentHashMap[String, Int](), maxTransactionTimeoutMs, producerStateManagerConfig, topicId, leaderEpoch, openStreamChecker)
             val leaderEpochFileCache = ElasticUnifiedLog.maybeCreateLeaderEpochCache(topicPartition, config.recordVersion, new ElasticLeaderEpochCheckpoint(localLog.leaderEpochCheckpointMeta, localLog.saveLeaderEpochCheckpoint))
             // The real logStartOffset should be set by loaded offsets from ElasticLogLoader.
             // Since the real value has been passed to localLog, we just pass it to ElasticUnifiedLog.

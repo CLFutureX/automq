@@ -202,7 +202,7 @@ public class ElasticLogSegment extends LogSegment implements Comparable<ElasticL
                 meta.firstBatchTimestamp(largestTimestampMs);
             }
 
-            // append the messages
+            //s3 6 append the messages
             long appendedBytes = log.append(records, largestOffset + 1);
             LOGGER.trace("Appended {} to {} at end offset {}", appendedBytes, log, largestOffset);
             // Update the in memory max timestamp and corresponding offset.
@@ -210,6 +210,7 @@ public class ElasticLogSegment extends LogSegment implements Comparable<ElasticL
                 maxTimestampAndOffsetSoFar = new TimestampOffset(largestTimestampMs, offsetOfMaxTimestamp);
             }
             // append an entry to the index (if needed)
+            // 7 在automq只有timeIndex以及log了，将原本的消息记录和稀疏索引合并了？
             if (bytesSinceLastIndexEntry > indexIntervalBytes) {
                 timeIndex.maybeAppend(maxTimestampSoFar(), shallowOffsetOfMaxTimestampSoFar());
                 bytesSinceLastIndexEntry = 0;

@@ -763,6 +763,7 @@ class ReplicaManager(val config: KafkaConfig,
     }
 
     val sTime = time.milliseconds
+    // 3 添加到本地localLog中，ebs，s3Stream
     val localProduceResults = appendToLocalLog(internalTopicsAllowed = internalTopicsAllowed,
       origin, entriesPerPartition, requiredAcks, requestLocal, verificationGuards.toMap)
     debug("Produce to local log in %d ms".format(time.milliseconds - sTime))
@@ -832,7 +833,7 @@ class ReplicaManager(val config: KafkaConfig,
       val errorResults = preAppendErrors.map {
         case (topicPartition, error) =>
           // translate transaction coordinator errors to known producer response errors
-          val customException =
+          val customException = {
             error match {
               case Errors.INVALID_TXN_STATE => Some(error.exception("Partition was not added to the transaction"))
               // Transaction verification can fail with a retriable error that older clients may not
@@ -847,6 +848,8 @@ class ReplicaManager(val config: KafkaConfig,
                 s"Unable to verify the partition has been added to the transaction. Underlying error: ${error.toString}"))
               case _ => None
             }
+          }
+
           topicPartition -> LogAppendResult(
             LogAppendInfo.UNKNOWN_LOG_APPEND_INFO,
             Some(customException.getOrElse(error.exception)),
@@ -860,7 +863,7 @@ class ReplicaManager(val config: KafkaConfig,
       def newResponseCallback(responses: Map[TopicPartition, PartitionResponse]): Unit = {
         responseCallback(preAppendPartitionResponses ++ responses)
       }
-
+      // 2 消息追加写入
       appendRecords(
         timeout = timeout,
         requiredAcks = requiredAcks,
@@ -1435,7 +1438,9 @@ class ReplicaManager(val config: KafkaConfig,
           hasCustomErrorMessage = false))
       } else {
         try {
+          //s3 4 获取主题分区
           val partition = getPartitionOrException(topicPartition)
+          //s3 5 将记录添加到分区leader中
           val info = partition.appendRecordsToLeader(records, origin, requiredAcks, requestLocal,
             verificationGuards.getOrElse(topicPartition, VerificationGuard.SENTINEL))
           val numAppendedMessages = info.numMessages

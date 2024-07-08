@@ -881,6 +881,7 @@ class UnifiedLog(@volatile var logStartOffset: Long,
           }
 
           // maybe roll the log if this segment is full
+          //s3 6 获取最新的segment，此时的segment可能需要滚动更新
           val segment = maybeRoll(validRecords.sizeInBytes, appendInfo)
 
           val logOffsetMetadata = new LogOffsetMetadata(

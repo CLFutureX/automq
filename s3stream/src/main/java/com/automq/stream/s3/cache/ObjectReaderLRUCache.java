@@ -34,6 +34,10 @@ public class ObjectReaderLRUCache extends LRUCache<Long, ObjectReader> {
         super.put(key, value);
     }
 
+    /**
+     * 每次都统计大小？ 还不如用原子类记录*
+     * @return
+     */
     private int objectSize() {
         return cacheEntrySet.stream().filter(entry -> entry.getValue().basicObjectInfo().isDone())
             .mapToInt(entry -> {

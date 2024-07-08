@@ -180,6 +180,7 @@ public class ElasticLogFileRecords implements AutoCloseable {
      * @throws IOException
      */
     public int append(MemoryRecords records, long lastOffset) throws IOException {
+        //s3 8 这种设计也可以，在枚举中完成合适的定义 简洁
         if (!status.writable()) {
             throw new IOException("Cannot append to a fenced log segment due to status " + status);
         }
@@ -189,11 +190,13 @@ public class ElasticLogFileRecords implements AutoCloseable {
         int appendSize = records.sizeInBytes();
         // Note that the calculation of count requires strong consistency between nextOffset and the baseOffset of records.
         int count = (int) (lastOffset - nextOffset.get());
+        // 将msg封装为batch？ 是否是批量呢？
         com.automq.stream.DefaultRecordBatch batch = new com.automq.stream.DefaultRecordBatch(count, 0, Collections.emptyMap(), records.buffer());
 
         AppendContext context = ContextUtils.createAppendContext();
         CompletableFuture<?> cf;
         try {
+            // 写入
             cf = TraceUtils.runWithSpanAsync(context, Attributes.empty(), "ElasticLogFileRecords::append",
                     () -> streamSlice.append(context, batch));
         } catch (Throwable ex) {

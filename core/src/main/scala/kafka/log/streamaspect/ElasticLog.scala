@@ -180,6 +180,9 @@ class ElasticLog(val metaStream: MetaStream,
         val activeSegment = segments.activeSegment
         val startTimestamp = time.nanoseconds()
 
+        /**
+         * 将申请内存量抽象为锁资源* *
+         */
         val permit = records.sizeInBytes()
         if (!APPEND_PERMIT_SEMAPHORE.tryAcquire(permit)) {
             while (!APPEND_PERMIT_SEMAPHORE.tryAcquire(permit, 1, TimeUnit.SECONDS)) {
@@ -639,6 +642,7 @@ object ElasticLog extends Logging {
 
         try {
             metaStream = if (metaNotExists) {
+                // 创建元数据stream
                 val stream = createMetaStream(client, key, replicationFactor, leaderEpoch, streamTags, logIdent = logIdent)
                 info(s"${logIdent}created a new meta stream: streamId=${stream.streamId()}")
                 stream

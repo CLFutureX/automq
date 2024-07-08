@@ -323,6 +323,7 @@ class ElasticReplicaManager(
       } else {
         try {
           val partition = getPartitionOrException(topicPartition)
+          // 写入到对应的分区-> ebs ?
           val info = partition.appendRecordsToLeader(records, origin, requiredAcks, requestLocal,
             verificationGuards.getOrElse(topicPartition, VerificationGuard.SENTINEL))
           val numAppendedMessages = info.numMessages

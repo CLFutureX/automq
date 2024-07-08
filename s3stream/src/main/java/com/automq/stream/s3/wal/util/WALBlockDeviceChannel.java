@@ -237,6 +237,7 @@ public class WALBlockDeviceChannel implements WALChannel {
     }
 
     @Override
+    //s32 这里可以看到会同步将数据写入到wal中
     public void write(ByteBuf src, long position) throws IOException {
         if (unalignedWrite) {
             // unaligned write, just used for testing
@@ -286,6 +287,8 @@ public class WALBlockDeviceChannel implements WALChannel {
         assert WALUtil.isAligned(src.remaining());
 
         int bytesWritten = 0;
+        // 写出时，直到全部写出为止，否则就会阻塞等待，没有设计成关注可写事件
+        // 可不可以设计成 异步，真正的写入交给对应的线程来负责，避免阻塞。 会不会存在空间不够的情况呢？
         while (src.hasRemaining()) {
             int written = randomAccessFile.write(src, position + bytesWritten);
             // kdio will throw an exception rather than return -1, so we don't need to check for -1

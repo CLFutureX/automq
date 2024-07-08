@@ -393,8 +393,10 @@ public class S3Storage implements Storage {
         CompletableFuture<Void> cf = new CompletableFuture<>();
         // encoded before append to free heap ByteBuf.
         streamRecord.encoded();
+        // 8 封装成wal req
         WalWriteRequest writeRequest = new WalWriteRequest(streamRecord, -1L, cf, context);
         handleAppendRequest(writeRequest);
+        // 9 添加
         append0(context, writeRequest, false);
         cf.whenComplete((nil, ex) -> {
             streamRecord.release();
@@ -414,6 +416,7 @@ public class S3Storage implements Storage {
             backoffRecords.offer(request);
             return true;
         }
+        // 当wal的缓存超过了设置的最大缓存maxDeltaWALCacheSize时
         if (!tryAcquirePermit()) {
             if (!fromBackoff) {
                 backoffRecords.offer(request);
@@ -433,6 +436,7 @@ public class S3Storage implements Storage {
                 Lock lock = confirmOffsetCalculator.addLock();
                 lock.lock();
                 try {
+                    // 9 追加到deltaWal 中
                     appendResult = deltaWAL.append(new TraceContext(context), streamRecord.encoded());
                 } finally {
                     lock.unlock();
@@ -921,16 +925,18 @@ public class S3Storage implements Storage {
      * WALCallbackSequencer is used to sequence the unordered returned persistent data.
      */
     static class WALCallbackSequencer {
-        private final Map<Long, Queue<WalWriteRequest>> stream2requests = new ConcurrentHashMap<>();
+        private final Map<Long/** streamId*/, Queue<WalWriteRequest>/**队列请求*/> stream2requests = new ConcurrentHashMap<>();
 
         /**
          * Add request to stream sequence queue.
          * When the {@code request.record.getStreamId()} is different, concurrent calls are allowed.
          * When the {@code request.record.getStreamId()} is the same, concurrent calls are not allowed. And it is
          * necessary to ensure that calls are made in the order of increasing offsets.
+         * before commit？*
          */
         public void before(WalWriteRequest request) {
             try {
+                // 这里需要用并发结构吗？  多个同时会写入？
                 Queue<WalWriteRequest> streamRequests = stream2requests.computeIfAbsent(request.record.getStreamId(),
                     s -> new ConcurrentLinkedQueue<>());
                 streamRequests.add(request);
@@ -947,13 +953,16 @@ public class S3Storage implements Storage {
          * @return popped sequence persisted request.
          */
         public List<WalWriteRequest> after(WalWriteRequest request) {
+            // 这里的作用？
             request.persisted = true;
 
             // Try to pop sequential persisted requests from the queue.
             long streamId = request.record.getStreamId();
+            //
             Queue<WalWriteRequest> streamRequests = stream2requests.get(streamId);
             WalWriteRequest peek = streamRequests.peek();
             if (peek == null || peek.offset != request.offset) {
+                // 这是什么设计？
                 return Collections.emptyList();
             }
 

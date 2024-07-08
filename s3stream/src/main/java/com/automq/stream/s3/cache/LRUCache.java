@@ -39,6 +39,10 @@ public class LRUCache<K, V> {
         return cache.get(key);
     }
 
+    /**
+     * 不应该从List从移除吗？*
+     * @return
+     */
     public synchronized Map.Entry<K, V> pop() {
         Iterator<Map.Entry<K, V>> it = cacheEntrySet.iterator();
         if (!it.hasNext()) {

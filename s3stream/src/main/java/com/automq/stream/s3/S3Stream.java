@@ -162,7 +162,7 @@ public class S3Stream implements Stream {
             }, LOGGER, "append");
             pendingAppends.add(cf);
             pendingAppendTimestamps.push(startTimeNanos);
-            pendingAppendTimestamps.push(timerUtil.lastAs(TimeUnit.NANOSECONDS));
+            //pendingAppendTimestamps.push(timerUtil.lastAs(TimeUnit.NANOSECONDS));
             // 这里，cf完成之后，会执行里面的方法，将pendingAppends.remove ，
             // 那么返回cf还是返回cf完成之后的cf ，哪个更好呢？除非外部有 a完成之后，就完成cf，那么就返回cf会比较好，因为cf是主流程
             // 这样会导致在cf完成时，先调用这里的完成，

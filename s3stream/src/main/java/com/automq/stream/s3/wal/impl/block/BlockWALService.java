@@ -431,6 +431,7 @@ public class BlockWALService implements WriteAheadLog {
         Lock lock = slidingWindowService.getBlockLock();
         lock.lock();
         try {
+            // 针对当前写入的位置，获取当前的block，其实就是尝试放入到上一个block中
             Block block = slidingWindowService.getCurrentBlockLocked();
             expectedWriteOffset = block.addRecord(recordSize, offset -> record(body, crc, offset), appendResultFuture);
             if (expectedWriteOffset < 0) {

@@ -54,6 +54,7 @@ public class BlockImpl implements Block {
      * {@link #release()} must be called when this block is no longer used.
      */
     public BlockImpl(long startOffset, long maxSize, long softLimit) {
+        assert maxSize >= softLimit;
         this.startOffset = startOffset;
         this.maxSize = maxSize;
         this.softLimit = softLimit;
@@ -72,17 +73,21 @@ public class BlockImpl implements Block {
     public long addRecord(long recordSize, Function<Long, ByteBuf> recordSupplier,
         CompletableFuture<AppendResult.CallbackResult> future) {
         assert data == null;
+        // 判断大小是否足够当前的写入。 maxSize 代表当前可以写入的最大大小。maxSize 与 softLimit的大小关系？
         long requiredCapacity = nextOffset + recordSize;
         if (requiredCapacity > maxSize) {
             return -1;
         }
         // if there is no record in this block, we can write a record larger than SOFT_BLOCK_SIZE_LIMIT
+        // 如果当前block要写入的大小大于当的软限制，且没有其他人往这个写入过，则支持写入大于当前软限制的数据--为了避免大数据无法写入？
         if (requiredCapacity > softLimit && !futures.isEmpty()) {
             return -1;
         }
-
+        // 当前记录的逻辑偏移量
         long recordOffset = startOffset + nextOffset;
+        // 将当前记录的offset写入到消息头中
         records.add(() -> recordSupplier.apply(recordOffset));
+        // 更新nextOffset
         nextOffset += recordSize;
         futures.add(future);
 

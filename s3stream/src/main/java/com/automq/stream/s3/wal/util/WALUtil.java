@@ -60,6 +60,11 @@ public class WALUtil {
         return offset / capacity;
     }
 
+    /**
+     * * 内存对齐
+     * @param offset
+     * @return
+     */
     public static long alignLargeByBlockSize(long offset) {
         return offset % BLOCK_SIZE == 0 ? offset : offset + BLOCK_SIZE - offset % BLOCK_SIZE;
     }

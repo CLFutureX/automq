@@ -98,7 +98,7 @@ public class SlidingWindowService {
     /**
      * The last time when a batch of blocks is written to the disk.
      */
-    private long lastWriteTimeNanos = 0;
+    private volatile long lastWriteTimeNanos = 0;
 
     public SlidingWindowService(WALChannel walChannel, int ioThreadNums, long upperLimit, long scaleUnit,
         long blockSoftLimit, int writeRateLimit, WALHeaderFlusher flusher) {
@@ -124,6 +124,7 @@ public class SlidingWindowService {
         long scheduledInterval = Math.max(MIN_SCHEDULED_WRITE_INTERVAL_NANOS, minWriteIntervalNanos);
         this.pollBlockScheduler = Threads.newSingleThreadScheduledExecutor(
             ThreadUtils.createThreadFactory("wal-poll-block-thread-%d", false), LOGGER);
+        //会定时调用写出，默认1/3000一次，除此之外每次写出时还会主动尝试tryWriteBlock一次，其实没有多大必要
         pollBlockScheduler.scheduleAtFixedRate(this::tryWriteBlock, 0, scheduledInterval, TimeUnit.NANOSECONDS);
 
         initialized.set(true);
@@ -155,9 +156,11 @@ public class SlidingWindowService {
      */
     public void tryWriteBlock() {
         assert initialized();
+        // 免费iops 1/3000
         if (!tryAcquireWriteRateLimit()) {
             return;
         }
+        // 获取可写出的blcok，
         BlockBatch blocks = pollBlocks();
         if (blocks != null) {
             blocks.blocks().forEach(Block::polled);
@@ -206,14 +209,17 @@ public class SlidingWindowService {
                 startOffset, minSize, trimOffset, recordSectionCapacity));
         }
 
+        // 512M
         long maxSize = upperLimit;
         // The size of the block should not be larger than writable size of the ring buffer
         // Let capacity=100, start=148, trim=49, then maxSize=100-148+49=1
+        // 当前block可用的最大空间 整个长度-（startOffset-trimOffset), maxSize
         maxSize = Math.min(recordSectionCapacity - startOffset + trimOffset, maxSize);
         // The size of the block should not be larger than the end of the physical device
-        // Let capacity=100, start=198, trim=198, then maxSize=100-198%100=2
+        // Let capacity=100, start=198, trim=198, then maxSize=100-198%100=2        不支持循环头尾相加，每次固定写完之后，下一次从头开始写
         maxSize = Math.min(recordSectionCapacity - startOffset % recordSectionCapacity, maxSize);
 
+       // 256 kb
         Block newBlock = new BlockImpl(startOffset, maxSize, blockSoftLimit);
         if (!previousBlock.isEmpty()) {
             // There are some records to be written in the previous block
@@ -305,12 +311,18 @@ public class SlidingWindowService {
         } else {
             blocks = new LinkedList<>();
         }
+        // 这样会导致currentBlock没有被写满，意图是每次刷入时，尽量都完全刷入。
+        // 不是以当前block的时间，而是以刷的周期。
+        // 这样会带来很多的短消息刷入
+        // 给block添加创建时间，比较当前是否已经超过了期间。
+        // 避免频繁的写出
         if (!isCurrentBlockEmpty) {
             blocks.add(currentBlock);
             setCurrentBlockLocked(nextBlock(currentBlock));
         }
-
+        // 封装成batch
         BlockBatch blockBatch = new BlockBatch(blocks);
+        // 添加到其中
         writingBlocks.add(blockBatch.startOffset());
 
         return blockBatch;

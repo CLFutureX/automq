@@ -47,6 +47,8 @@ import org.apache.kafka.server.common.automq.AutoMQVersion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.automq.stream.s3.metadata.ObjectUtils.NOOP_OBJECT_ID;
+
 public class ControllerObjectManager implements ObjectManager {
 
     private final static Logger LOGGER = LoggerFactory.getLogger(ControllerObjectManager.class);
@@ -126,7 +128,7 @@ public class ControllerObjectManager implements ObjectManager {
                 .map(s -> Convertor.toStreamObjectInRequest(s, version.get())).collect(Collectors.toList()))
             .setCompactedObjectIds(commitStreamSetObjectRequest.getCompactedObjectIds())
             .setFailoverMode(failoverMode);
-        if (commitStreamSetObjectRequest.getAttributes() == ObjectAttributes.UNSET.attributes()) {
+        if (commitStreamSetObjectRequest.getObjectId() != NOOP_OBJECT_ID && commitStreamSetObjectRequest.getAttributes() == ObjectAttributes.UNSET.attributes()) {
             throw new IllegalArgumentException("[BUG]attributes must be set");
         }
         if (version.get().isObjectAttributesSupported()) {
@@ -226,8 +228,8 @@ public class ControllerObjectManager implements ObjectManager {
         int limit) {
         return this.metadataManager.fetch(streamId, startOffset, endOffset, limit).thenApply(inRangeObjects -> {
             if (inRangeObjects == null || inRangeObjects == InRangeObjects.INVALID) {
-                LOGGER.error("Unexpect getObjects result={} from streamId={} [{}, {}) limit={}", inRangeObjects, streamId, startOffset, endOffset, limit);
-                throw new AutoMQException("Unexpect getObjects result");
+                LOGGER.error("Unexpected getObjects result={} from streamId={} [{}, {}) limit={}", inRangeObjects, streamId, startOffset, endOffset, limit);
+                throw new AutoMQException("Unexpected getObjects result");
             }
             return inRangeObjects.objects();
         });

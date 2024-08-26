@@ -451,7 +451,6 @@ public class S3Storage implements Storage {
         try {
             try {
                 StreamRecordBatch streamRecord = request.record;
-                streamRecord.retain();
                 Lock lock = confirmOffsetCalculator.addLock();
                 lock.lock();
                 try {
